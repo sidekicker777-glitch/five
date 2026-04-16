@@ -1,6 +1,15 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, type ChangeEvent, type ComponentType, type Dispatch, type SetStateAction } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type ComponentType,
+  type Dispatch,
+  type SetStateAction,
+} from 'react';
 import { motion } from 'framer-motion';
 import {
   Bot,
@@ -36,7 +45,7 @@ function SectionCard({
   subtitle,
   children,
 }: {
-  icon: ComponentType<{ className?: string }>; 
+  icon: ComponentType<{ className?: string }>;
   title: string;
   subtitle: string;
   children: React.ReactNode;
@@ -85,6 +94,140 @@ function PillGroup({
   );
 }
 
+function titleCase(text: string) {
+  return text
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
+function inferModeFromBrief(brief: string): ModeId {
+  const text = brief.toLowerCase();
+
+  if (/(debug|fix|broken|error|issue|not work|stuck|problem|troubleshoot)/.test(text)) return 'debug';
+  if (/(mlo|mapping|interior|shell|ipl|prop|map builder|object placement)/.test(text)) return 'mlo';
+  if (/(ui|nui|hud|tablet|interface|menu|loading screen)/.test(text)) return 'ui';
+  if (/(item|weapon|ammo|inventory image|attachment|loot table|crafting item)/.test(text)) return 'items';
+  if (/(full system|complete system|framework|economy|job system|multi-step|whole system)/.test(text)) return 'system';
+
+  return 'script';
+}
+
+function buildProjectNameFromBrief(brief: string, mode: ModeId) {
+  const cleaned = brief
+    .replace(/^(i want|can you|please|write me|make me|i need|build me)\s+/i, '')
+    .replace(/[^\w\s/-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const words = cleaned.split(' ').filter(Boolean).slice(0, 5);
+  const base = titleCase(words.join(' '));
+  const suffix =
+    mode === 'ui'
+      ? ' UI Prompt'
+      : mode === 'debug'
+        ? ' Debug Prompt'
+        : mode === 'mlo'
+          ? ' MLO Prompt'
+          : mode === 'items'
+            ? ' Items Prompt'
+            : mode === 'system'
+              ? ' System Prompt'
+              : ' Script Prompt';
+
+  return base ? `${base}${suffix}`.slice(0, 72) : STARTERS[mode].title;
+}
+
+function buildSummaryFromBrief(brief: string, mode: ModeId) {
+  const modeLabel = MODES.find((entry) => entry.id === mode)?.label || 'FiveM build';
+  return `Turn this rough request into a polished ${modeLabel.toLowerCase()} prompt for a high-level AI assistant: ${brief.trim()}`;
+}
+
+function buildFeaturesFromBrief(brief: string, mode: ModeId) {
+  const text = brief.trim();
+  const lower = text.toLowerCase();
+  const lines = [
+    `Use this raw user request as the core idea: "${text}"`,
+    'Expand the rough idea into a cleaner, stronger, more production-ready prompt instead of repeating it word-for-word.',
+    'Make the AI act like an expert FiveM developer with strong QBCore, QS, standalone, optimization, and integration knowledge.',
+  ];
+
+  if (mode === 'script') {
+    lines.push('Focus on real FiveM resource structure, events, exports, configs, and drop-in usability.');
+  }
+  if (mode === 'ui') {
+    lines.push('Push for polished NUI structure, responsive layouts, strong UX, and clean Lua-to-UI wiring.');
+  }
+  if (mode === 'debug') {
+    lines.push('Push for root-cause analysis, working fixes, and corrected files instead of general advice.');
+  }
+  if (mode === 'mlo') {
+    lines.push('Push for builder workflow, placement logic, save/load flow, export format, and admin controls.');
+  }
+  if (mode === 'items') {
+    lines.push('Push for item definitions, metadata, weapon mappings, images, and inventory-ready naming consistency.');
+  }
+  if (mode === 'system') {
+    lines.push('Push for modular architecture, clean scalability, deep integrations, and premium release quality.');
+  }
+
+  if (/(prompt|chatgpt|gpt|claude|ai)/.test(lower)) {
+    lines.push('Keep the final result in ready-to-paste AI prompt format, not as a casual explanation.');
+  }
+  if (/(qbcore|qb core|qb)/.test(lower)) {
+    lines.push('Make QBCore a first-class target.');
+  }
+  if (/(standalone)/.test(lower)) {
+    lines.push('Keep standalone fallback behavior clean and realistic.');
+  }
+  if (/(qs-|quasar|qs inventory|qs housing|qs apartments|qs interface)/.test(lower)) {
+    lines.push('Explicitly account for QS resource compatibility and bridge behavior.');
+  }
+  if (/(ox_target|ox target|ox_lib|ox lib|ox_inventory|ox inventory)/.test(lower)) {
+    lines.push('Include Ox ecosystem compatibility where it improves the result.');
+  }
+  if (/(qb-target|qb target)/.test(lower)) {
+    lines.push('Keep qb-target interactions and setup details in scope.');
+  }
+  if (/(premium|tebex|polished|modern)/.test(lower)) {
+    lines.push('Aim for premium, Tebex-ready polish and cleaner presentation.');
+  }
+
+  lines.push('Fill in missing details with realistic FiveM best practices while staying aligned with what the user actually asked for.');
+
+  return lines.join(' ');
+}
+
+function buildNotesFromBrief(brief: string) {
+  return `Base the final prompt on this rough request: "${brief.trim()}". Improve clarity, completeness, and specificity without drifting away from the original goal.`;
+}
+
+function detectSelectionsFromBrief(brief: string) {
+  const lower = brief.toLowerCase();
+
+  const frameworks = [
+    ...( /(qbcore|qb core|qb)/.test(lower) ? ['QBCore'] : []),
+    ...( /(standalone)/.test(lower) ? ['Standalone'] : []),
+    ...( /(esx)/.test(lower) ? ['ESX'] : []),
+    ...( /(qbox)/.test(lower) ? ['Qbox'] : []),
+  ];
+
+  const targets = [
+    ...( /(qb-target|qb target)/.test(lower) ? ['qb-target'] : []),
+    ...( /(ox_target|ox target)/.test(lower) ? ['ox_target'] : []),
+    ...( /(qtarget|q-target)/.test(lower) ? ['qtarget'] : []),
+  ];
+
+  const inventories = [
+    ...( /(qs-inventory|qs inventory)/.test(lower) ? ['qs-inventory'] : []),
+    ...( /(ox_inventory|ox inventory)/.test(lower) ? ['ox_inventory'] : []),
+    ...( /(qb-inventory|qb inventory)/.test(lower) ? ['qb-inventory'] : []),
+  ];
+
+  return { frameworks, targets, inventories };
+}
+
 function buildPrompt(data: PresetState, modeLabel: string) {
   const frameworks = data.frameworks.length ? data.frameworks.join(', ') : 'QBCore, Standalone';
   const targets = data.targets.length ? data.targets.join(', ') : 'qb-target, ox_target';
@@ -98,8 +241,9 @@ function buildPrompt(data: PresetState, modeLabel: string) {
   const deliverables = data.deliverables.length
     ? data.deliverables.join(', ')
     : 'complete resource, config, SQL, README, and install notes';
+  const rawBrief = data.brief?.trim();
 
-  const modeGuidance: Record<ModeId, string> = {
+  const modeGuidance = {
     script:
       'Focus on a complete gameplay script that is production-ready, optimized, deeply configurable, and easy to run on live FiveM servers.',
     ui: 'Focus heavily on premium NUI quality, responsive layouts, polished UX, sharing tools, and full UI-to-Lua wiring.',
@@ -119,7 +263,10 @@ Task Type: ${modeLabel}
 Project Name: ${data.projectName || 'Untitled FiveM Project'}
 Main Goal: ${data.summary || 'Create a complete FiveM resource.'}
 
-What I want built:
+${rawBrief ? `Original user brief:
+${rawBrief}
+
+` : ''}What I want built:
 ${data.features || 'Build the full system with working client, server, config, and UI flow.'}
 
 Compatibility targets:
@@ -195,14 +342,15 @@ export default function HomePage() {
   const [extras, setExtras] = useState<string[]>(DEFAULTS.extras);
   const [deliverables, setDeliverables] = useState<string[]>(DEFAULTS.deliverables);
   const [notes, setNotes] = useState(DEFAULTS.notes);
+  const [brief, setBrief] = useState(DEFAULTS.brief || '');
+  const [copied, setCopied] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
+  const [conversationId, setConversationId] = useState(
+    typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'replace-with-uuid',
+  );
   const [proxyUrl, setProxyUrl] = useState(DEFAULTS.proxyUrl);
   const [teamId, setTeamId] = useState(DEFAULTS.teamId);
   const [botId, setBotId] = useState(DEFAULTS.botId);
-  const [conversationId, setConversationId] = useState(() =>
-    typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'replace-with-uuid'
-  );
-  const [copied, setCopied] = useState(false);
-  const [shareCopied, setShareCopied] = useState(false);
   const [docsbotAnswer, setDocsbotAnswer] = useState('');
   const [docsbotError, setDocsbotError] = useState('');
   const [loadingReply, setLoadingReply] = useState(false);
@@ -228,14 +376,12 @@ export default function HomePage() {
       extras,
       deliverables,
       notes,
+      brief,
     }),
-    [mode, projectName, summary, features, frameworks, targets, inventories, appearance, phones, garages, qsPackages, extras, deliverables, notes]
+    [mode, projectName, summary, features, frameworks, targets, inventories, appearance, phones, garages, qsPackages, extras, deliverables, notes, brief],
   );
 
-  const prompt = useMemo(() => {
-    const modeLabel = MODES.find((entry) => entry.id === mode)?.label || mode;
-    return buildPrompt(presetState, modeLabel);
-  }, [mode, presetState]);
+  const prompt = useMemo(() => buildPrompt(presetState, MODES.find((entry) => entry.id === mode)?.label || 'Script Builder'), [presetState, mode]);
 
   const docsBotPayload = useMemo(
     () => ({
@@ -243,7 +389,7 @@ export default function HomePage() {
       stream: false,
       conversationId,
     }),
-    [prompt, conversationId]
+    [prompt, conversationId],
   );
 
   const shareUrl = useMemo(() => {
@@ -255,10 +401,10 @@ export default function HomePage() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const presetParam = new URLSearchParams(window.location.search).get('preset');
-    if (!presetParam) return;
+    const preset = new URLSearchParams(window.location.search).get('preset');
+    if (!preset) return;
 
-    const parsed = decodePreset(presetParam);
+    const parsed = decodePreset(preset);
     if (!parsed) return;
 
     setMode(parsed.mode || DEFAULTS.mode);
@@ -275,6 +421,7 @@ export default function HomePage() {
     setExtras(parsed.extras || DEFAULTS.extras);
     setDeliverables(parsed.deliverables || DEFAULTS.deliverables);
     setNotes(parsed.notes || DEFAULTS.notes);
+    setBrief(parsed.brief || '');
   }, []);
 
   const applyModeStarter = (nextMode: ModeId) => {
@@ -282,6 +429,28 @@ export default function HomePage() {
     setProjectName(STARTERS[nextMode].title);
     setSummary(STARTERS[nextMode].summary);
     setFeatures(STARTERS[nextMode].features);
+  };
+
+  const generateFromBrief = () => {
+    const cleaned = brief.trim().replace(/\s+/g, ' ');
+    if (!cleaned) {
+      setDocsbotError('Type your rough idea first, then generate a better prompt from it.');
+      return;
+    }
+
+    const nextMode = inferModeFromBrief(cleaned);
+    const detected = detectSelectionsFromBrief(cleaned);
+
+    setDocsbotError('');
+    setMode(nextMode);
+    setProjectName(buildProjectNameFromBrief(cleaned, nextMode));
+    setSummary(buildSummaryFromBrief(cleaned, nextMode));
+    setFeatures(buildFeaturesFromBrief(cleaned, nextMode));
+    setNotes(buildNotesFromBrief(cleaned));
+
+    if (detected.frameworks.length) setFrameworks(Array.from(new Set(detected.frameworks)));
+    if (detected.targets.length) setTargets(Array.from(new Set(detected.targets)));
+    if (detected.inventories.length) setInventories(Array.from(new Set(detected.inventories)));
   };
 
   const copyPrompt = async () => {
@@ -327,6 +496,7 @@ export default function HomePage() {
       setExtras(parsed.extras || DEFAULTS.extras);
       setDeliverables(parsed.deliverables || DEFAULTS.deliverables);
       setNotes(parsed.notes || DEFAULTS.notes);
+      setBrief(parsed.brief || '');
     } catch {
       setDocsbotError('Could not import preset JSON.');
     } finally {
@@ -349,6 +519,7 @@ export default function HomePage() {
     setExtras(DEFAULTS.extras);
     setDeliverables(DEFAULTS.deliverables);
     setNotes(DEFAULTS.notes);
+    setBrief(DEFAULTS.brief || '');
     setDocsbotAnswer('');
     setDocsbotError('');
     if (typeof crypto !== 'undefined' && crypto.randomUUID) {
@@ -404,40 +575,68 @@ export default function HomePage() {
             <Sparkles size={16} />
             FiveM AI Prompt Maker
           </div>
-          <h1 className="hero-title">Build better prompts for FiveM scripts, systems, UI, items, and builder tools.</h1>
+          <h1 className="hero-title">Turn a rough FiveM idea into a better full prompt.</h1>
           <p className="hero-copy">
-            This version separates the extras into cleaner categories, keeps broad QS support, works with QBCore and standalone setups,
-            and stays ready for sharing with friends through links or preset files.
+            Type what you want in plain words, let the builder expand it into a stronger prompt, then fine-tune the integrations and extras
+            before you copy or send it through your DocsBot proxy.
           </p>
           <div className="info-row">
-            <div className="info-chip">QBCore + Standalone</div>
-            <div className="info-chip">Grouped extras</div>
-            <div className="info-chip">Broad QS ecosystem support</div>
-            <div className="info-chip">DocsBot server proxy</div>
+            <div className="info-chip">Fits in frame</div>
+            <div className="info-chip">Freeform prompt generation</div>
+            <div className="info-chip">QBCore + QS aware</div>
+            <div className="info-chip">DocsBot-ready</div>
           </div>
         </div>
 
         <div className="panel">
           <div className="card-header">
             <div className="icon-box">
-              <Bot />
+              <Bot className="icon" />
             </div>
             <div>
-              <h2 className="section-title">Share with friends</h2>
-              <p className="section-subtitle">Copy a share link, export a preset, or let them run the same setup from their own browser.</p>
+              <h2 className="section-title">How it works</h2>
+              <p className="section-subtitle">Give it a rough ask once, then let it turn that into a better structured prompt.</p>
             </div>
           </div>
           <div className="steps">
-            <div className="step">1. Pick your mode, integrations, QS resources, and grouped extras.</div>
-            <div className="step">2. Share the full setup by URL or export it as a preset JSON file.</div>
-            <div className="step">3. Send the generated prompt through the built-in server proxy to DocsBot.</div>
+            <div className="step">1. Type your rough request in the quick brief box.</div>
+            <div className="step">2. Click Generate better prompt from brief to fill the main fields for you.</div>
+            <div className="step">3. Adjust integrations, extras, and deliverables, then copy the finished prompt.</div>
           </div>
         </div>
       </motion.section>
 
-      <div className="main-grid">
+      <div className="workspace-grid">
         <div className="split-grid">
-          <SectionCard icon={Wand2} title="Prompt builder" subtitle="Shape the AI request exactly how you want it.">
+          <SectionCard icon={Wand2} title="Prompt builder" subtitle="Type the rough idea once, then generate better prompt fields around it.">
+            <div className="field-grid">
+              <label className="input-block">
+                <span className="label">Quick brief</span>
+                <textarea
+                  rows={4}
+                  value={brief}
+                  onChange={(event) => setBrief(event.target.value)}
+                  placeholder="Example: I want a prompt for ChatGPT that makes it act like an expert FiveM dev and build a premium qb-target restaurant script with QS inventory support."
+                />
+              </label>
+
+              <div className="action-row">
+                <button type="button" className="action-button primary" onClick={generateFromBrief}>
+                  <Sparkles size={16} /> Generate better prompt from brief
+                </button>
+                <button type="button" className="action-button" onClick={() => applyModeStarter(mode)}>
+                  Use current mode starter
+                </button>
+              </div>
+
+              <p className="helper">
+                This does more than paste your text into one box. It expands your rough request into a cleaner project name, main goal, and
+                feature brief.
+              </p>
+            </div>
+
+            <div className="divider" />
+
             <div className="mode-row" style={{ marginBottom: 16 }}>
               {MODES.map((entry) => (
                 <button
@@ -496,9 +695,9 @@ export default function HomePage() {
                 <PillGroup options={OPTION_GROUPS.garages} selected={garages} onToggle={toggle(setGarages, garages)} />
               </div>
               <div className="input-block">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                <div className="row-between">
                   <span className="label">QS resources to support</span>
-                  <div className="mode-row">
+                  <div className="mini-actions">
                     <button type="button" className="text-button" onClick={selectAllQs}>
                       Select all
                     </button>
@@ -512,7 +711,7 @@ export default function HomePage() {
             </div>
           </SectionCard>
 
-          <SectionCard icon={Package} title="Extras + deliverables" subtitle="The extras are now separated into cleaner groups instead of one huge pile.">
+          <SectionCard icon={Package} title="Extras + deliverables" subtitle="These are grouped, but the whole page now stays in frame without pushing off to the right.">
             <div className="extra-groups">
               {EXTRA_GROUPS.map((group) => (
                 <div key={group.id} className="extra-group">
@@ -531,7 +730,7 @@ export default function HomePage() {
               <label className="input-block">
                 <span className="label">Extra notes</span>
                 <textarea
-                  rows={5}
+                  rows={4}
                   value={notes}
                   onChange={(event) => setNotes(event.target.value)}
                   placeholder="Add server rules, naming conventions, or special integration requirements here."
@@ -542,7 +741,7 @@ export default function HomePage() {
         </div>
 
         <div className="split-grid">
-          <SectionCard icon={Code2} title="Generated prompt" subtitle="Copy this into your coding AI or send it through your DocsBot proxy.">
+          <SectionCard icon={Code2} title="Generated prompt" subtitle="The output updates after you generate from the quick brief or edit the detailed fields.">
             <div className="action-row">
               <button type="button" className="action-button primary" onClick={copyPrompt}>
                 {copied ? <CheckCircle2 size={16} /> : <Copy size={16} />} {copied ? 'Copied' : 'Copy Prompt'}
@@ -561,7 +760,7 @@ export default function HomePage() {
               </button>
               <input ref={fileInputRef} type="file" accept="application/json" className="hidden-input" onChange={importPreset} />
             </div>
-            <textarea className="mono" rows={26} readOnly value={prompt} />
+            <textarea className="mono prompt-output" rows={18} readOnly value={prompt} />
           </SectionCard>
 
           <SectionCard icon={Server} title="Sharing + DocsBot setup" subtitle="Share the setup and optionally run the prompt through your server-side proxy.">
