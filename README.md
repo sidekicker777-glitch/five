@@ -93,3 +93,8 @@ Any host that supports a Next.js Node server or Next standalone output will work
 
 - Public bots can work without auth, but private bots should use a server-side API key or DocsBot JWT signing.
 - Do **not** put DocsBot secrets in frontend code.
+
+
+## Layout refresh
+
+This packaged version includes a larger grouped layout refresh with bigger chips/buttons, wider spacing, and easier-to-scan extra sections.
