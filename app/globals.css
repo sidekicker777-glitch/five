@@ -59,7 +59,7 @@ textarea {
 }
 
 .page-shell {
-  width: min(1560px, calc(100% - 40px));
+  width: min(1760px, calc(100% - 34px));
   margin: 0 auto;
   padding: 32px 0 56px;
 }
@@ -76,15 +76,15 @@ textarea {
 }
 
 .main-grid {
-  grid-template-columns: minmax(420px, 0.95fr) minmax(0, 1.1fr);
+  grid-template-columns: minmax(540px, 0.98fr) minmax(0, 1.02fr);
   align-items: start;
 }
 
-.panel {
+ .panel {
   border: 1px solid var(--border);
   background: var(--panel);
   border-radius: 34px;
-  padding: 28px;
+  padding: 32px;
   box-shadow: var(--shadow);
   backdrop-filter: blur(14px);
 }
@@ -150,8 +150,8 @@ textarea {
 .card-header {
   display: flex;
   align-items: flex-start;
-  gap: 14px;
-  margin-bottom: 20px;
+  gap: 16px;
+  margin-bottom: 24px;
 }
 
 .icon-box {
@@ -167,26 +167,26 @@ textarea {
 
 .section-title {
   margin: 0;
-  font-size: 1.28rem;
+  font-size: 1.45rem;
 }
 
 .section-subtitle {
   margin: 4px 0 0;
-  font-size: 1rem;
-  line-height: 1.6;
+  font-size: 1.05rem;
+  line-height: 1.7;
 }
 
 .mode-row {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  grid-template-columns: 1fr;
+  gap: 14px;
 }
 
 .pill-row,
 .action-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 14px;
 }
 
 .mode-button,
@@ -197,15 +197,15 @@ textarea {
   background: rgba(255, 255, 255, 0.05);
   color: var(--text);
   border-radius: 22px;
-  padding: 14px 18px;
+  padding: 16px 20px;
   cursor: pointer;
-  font-size: 1rem;
+  font-size: 1.05rem;
   font-weight: 600;
   line-height: 1.2;
 }
 
 .option-pill {
-  min-height: 56px;
+  min-height: 64px;
   display: inline-flex;
   align-items: center;
 }
@@ -235,7 +235,7 @@ textarea {
 
 .field-grid {
   display: grid;
-  gap: 18px;
+  gap: 20px;
 }
 
 .input-block {
@@ -258,21 +258,21 @@ textarea {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.extra-group {
+ .extra-group {
   border: 1px solid var(--border);
   border-radius: 28px;
-  padding: 18px;
+  padding: 22px;
   background: rgba(255, 255, 255, 0.03);
 }
 
 .extra-group-title {
   margin: 0 0 6px;
-  font-size: 1.06rem;
+  font-size: 1.16rem;
 }
 
 .extra-group-subtitle {
   margin: 0 0 14px;
-  font-size: 0.94rem;
+  font-size: 1rem;
   color: var(--muted);
   line-height: 1.6;
 }
@@ -309,9 +309,9 @@ textarea {
 }
 
 textarea.mono {
-  min-height: 560px;
-  font-size: 0.82rem;
-  line-height: 1.7;
+  min-height: 460px;
+  font-size: 0.9rem;
+  line-height: 1.8;
 }
 
 .steps {
@@ -320,11 +320,11 @@ textarea.mono {
   margin-top: 20px;
 }
 
-.step {
+ .step {
   border-radius: 22px;
   border: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.05);
-  padding: 16px;
+  padding: 18px;
   line-height: 1.6;
 }
 
@@ -388,5 +388,16 @@ textarea.mono {
   .option-pill {
     width: 100%;
     justify-content: center;
+  }
+}
+
+
+@media (min-width: 1500px) {
+  .hero-title {
+    max-width: 13ch;
+  }
+
+  .mode-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
