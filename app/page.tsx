@@ -107,11 +107,13 @@ function titleCase(input: string) {
 
 function inferModeFromBrief(brief: string, currentMode: ModeId): ModeId {
   const text = brief.toLowerCase();
-  if (/(nui|ui|tablet|hud|menu|interface|design)/.test(text)) return 'ui';
-  if (/(debug|fix|error|issue|broken|bug|trace)/.test(text)) return 'debug';
-  if (/(mlo|mapping|interior|prop|object|coords|map|shell)/.test(text)) return 'mlo';
-  if (/(weapon|ammo|item|inventory|attachment|icon)/.test(text)) return 'items';
-  if (/(system|framework|complete|full script|whole thing|complete resource)/.test(text)) return 'system';
+
+  if (/(\bnui\b|\bui\b|tablet|\bhud\b|\binterface\b|\bux\b|\bfrontend\b|dashboard)/.test(text)) return 'ui';
+  if (/(debug|fix|error|issue|broken|bug|trace|troubleshoot)/.test(text)) return 'debug';
+  if (/(\bmlo\b|mapping|interior|\bprop\b|\bprops\b|\bobject\b|\bobjects\b|coords?|shell)/.test(text)) return 'mlo';
+  if (/(weapon|ammo|\bitem\b|\bitems\b|inventory|attachment|icon)/.test(text)) return 'items';
+  if (/(\bsystem\b|framework|complete resource|full system|entire system)/.test(text)) return 'system';
+
   return currentMode;
 }
 
@@ -138,9 +140,9 @@ function pickRelevantExtras(extras: string[], max = 10) {
   return extras.filter(Boolean).slice(0, max);
 }
 
-function buildEnhancedFields(brief: string, state: PresetState) {
+function buildEnhancedFields(brief: string, state: PresetState, options?: { lockMode?: boolean }) {
   const cleaned = normalizeBrief(brief);
-  const inferredMode = inferModeFromBrief(cleaned, state.mode);
+  const inferredMode = options?.lockMode ? state.mode : inferModeFromBrief(cleaned, state.mode);
   const modeLabel = MODES.find((entry) => entry.id === inferredMode)?.label || inferredMode;
   const selectedExtras = pickRelevantExtras(state.extras, 12);
   const selectedQs = state.qsPackages.slice(0, 8);
@@ -406,8 +408,8 @@ export default function FiveMPromptMakerSite() {
   const randomFromSelections = () => {
     const brief = generateRandomIdea(presetState);
     setQuickBrief(brief);
-    const next = buildEnhancedFields(brief, presetState);
-    setMode(next.mode);
+    const next = buildEnhancedFields(brief, presetState, { lockMode: true });
+    setMode(presetState.mode);
     setProjectName(next.projectName);
     setSummary(next.summary);
     setFeatures(next.features);
