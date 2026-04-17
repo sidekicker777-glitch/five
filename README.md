@@ -95,8 +95,6 @@ Any host that supports a Next.js Node server or Next standalone output will work
 - Do **not** put DocsBot secrets in frontend code.
 
 
-## Layout refresh
+## v7 brief-first prompt flow
 
-This packaged version includes a larger grouped layout refresh with bigger chips/buttons, wider spacing, and easier-to-scan extra sections.
-
-- random prompt generation button based on selected extras and integrations
+This build adds a quick brief box, a prompt enhancement action, and a random prompt action that uses currently selected extras and integrations.

@@ -241,7 +241,6 @@ export type PresetState = {
   extras: string[];
   deliverables: string[];
   notes: string;
-  brief: string;
 };
 
 export const DEFAULTS: PresetState & {
@@ -287,7 +286,6 @@ export const DEFAULTS: PresetState & {
   deliverables: [...OPTION_GROUPS.deliverables],
   notes:
     'Make it work with QBCore first, support as many QS scripts as possible when present, and keep standalone fallback behavior clean. Include real integration notes, shareable presets, and avoid fake exports.',
-  brief: '',
   proxyUrl: '/api/docsbot/chat-agent',
   teamId: process.env.NEXT_PUBLIC_DEFAULT_TEAM_ID || 'YOUR_TEAM_ID',
   botId: process.env.NEXT_PUBLIC_DEFAULT_BOT_ID || 'YOUR_BOT_ID',

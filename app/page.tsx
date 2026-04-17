@@ -1,15 +1,6 @@
 'use client';
 
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ChangeEvent,
-  type ComponentType,
-  type Dispatch,
-  type SetStateAction,
-} from 'react';
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type ComponentType, type Dispatch, type SetStateAction } from 'react';
 import { motion } from 'framer-motion';
 import {
   Bot,
@@ -26,7 +17,8 @@ import {
   Sparkles,
   Upload,
   Wand2,
-  Dices,
+  WandSparkles,
+  Shuffle,
 } from 'lucide-react';
 import { decodePreset, encodePreset } from '@/lib/preset';
 import {
@@ -95,294 +87,151 @@ function PillGroup({
   );
 }
 
-function titleCase(text: string) {
-  return text
+function normalizeBrief(input: string) {
+  return input.replace(/\s+/g, ' ').replace(/[“”]/g, '"').trim();
+}
+
+function sentenceCase(input: string) {
+  if (!input) return input;
+  return input.charAt(0).toUpperCase() + input.slice(1);
+}
+
+function titleCase(input: string) {
+  return input
     .split(/\s+/)
     .filter(Boolean)
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .slice(0, 8)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(' ');
 }
 
-function inferModeFromBrief(brief: string): ModeId {
+function inferModeFromBrief(brief: string, currentMode: ModeId): ModeId {
+  const text = brief.toLowerCase();
+  if (/(nui|ui|tablet|hud|menu|interface|design)/.test(text)) return 'ui';
+  if (/(debug|fix|error|issue|broken|bug|trace)/.test(text)) return 'debug';
+  if (/(mlo|mapping|interior|prop|object|coords|map|shell)/.test(text)) return 'mlo';
+  if (/(weapon|ammo|item|inventory|attachment|icon)/.test(text)) return 'items';
+  if (/(system|framework|complete|full script|whole thing|complete resource)/.test(text)) return 'system';
+  return currentMode;
+}
+
+function deriveProjectName(brief: string, mode: ModeId) {
   const text = brief.toLowerCase();
 
-  if (/(debug|fix|broken|error|issue|not work|stuck|problem|troubleshoot)/.test(text)) return 'debug';
-  if (/(mlo|mapping|interior|shell|ipl|prop|map builder|object placement)/.test(text)) return 'mlo';
-  if (/(ui|nui|hud|tablet|interface|menu|loading screen)/.test(text)) return 'ui';
-  if (/(item|weapon|ammo|inventory image|attachment|loot table|crafting item)/.test(text)) return 'items';
-  if (/(full system|complete system|framework|economy|job system|multi-step|whole system)/.test(text)) return 'system';
+  if (/(prop|object).*(remove|cleanup|delete)/.test(text)) return 'Persistent Prop Cleanup Dev Tool';
+  if (/(restaurant|food|menu)/.test(text)) return 'Restaurant Menu Builder';
+  if (/(elevator)/.test(text)) return 'Advanced Elevator System';
+  if (/(handling)/.test(text)) return 'Vehicle Handling Editor';
+  if (/(weather|time)/.test(text)) return 'Weather and Time Admin System';
+  if (/(clothing|appearance|shop)/.test(text)) return 'Clothing Shop Builder';
+  if (/(inventory|item)/.test(text)) return 'Item and Inventory Builder';
+  if (/(mlo|interior|map)/.test(text)) return 'MLO and Mapping Dev Tool';
+  if (/(phone)/.test(text)) return 'Phone-Integrated FiveM System';
+  if (/(garage|vehicle)/.test(text)) return 'Vehicle and Garage System';
 
-  return 'script';
+  const trimmed = titleCase(brief.replace(/[^a-zA-Z0-9\s]/g, ''));
+  if (trimmed) return trimmed;
+  return STARTERS[mode].title;
 }
 
-function buildProjectNameFromBrief(brief: string, mode: ModeId) {
-  const cleaned = brief
-    .replace(/^(i want|can you|please|write me|make me|i need|build me)\s+/i, '')
-    .replace(/[^\w\s/-]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-
-  const words = cleaned.split(' ').filter(Boolean).slice(0, 5);
-  const base = titleCase(words.join(' '));
-  const suffix =
-    mode === 'ui'
-      ? ' UI Prompt'
-      : mode === 'debug'
-        ? ' Debug Prompt'
-        : mode === 'mlo'
-          ? ' MLO Prompt'
-          : mode === 'items'
-            ? ' Items Prompt'
-            : mode === 'system'
-              ? ' System Prompt'
-              : ' Script Prompt';
-
-  return base ? `${base}${suffix}`.slice(0, 72) : STARTERS[mode].title;
+function pickRelevantExtras(extras: string[], max = 10) {
+  return extras.filter(Boolean).slice(0, max);
 }
 
-function buildSummaryFromBrief(brief: string, mode: ModeId) {
-  const modeLabel = MODES.find((entry) => entry.id === mode)?.label || 'FiveM build';
-  return `Turn this rough request into a polished ${modeLabel.toLowerCase()} prompt for a high-level AI assistant: ${brief.trim()}`;
-}
+function buildEnhancedFields(brief: string, state: PresetState) {
+  const cleaned = normalizeBrief(brief);
+  const inferredMode = inferModeFromBrief(cleaned, state.mode);
+  const modeLabel = MODES.find((entry) => entry.id === inferredMode)?.label || inferredMode;
+  const selectedExtras = pickRelevantExtras(state.extras, 12);
+  const selectedQs = state.qsPackages.slice(0, 8);
 
-function buildFeaturesFromBrief(brief: string, mode: ModeId) {
-  const text = brief.trim();
-  const lower = text.toLowerCase();
-  const lines = [
-    `Use this raw user request as the core idea: "${text}"`,
+  const projectName = deriveProjectName(cleaned, inferredMode);
+  const summary = sentenceCase(
+    `Turn this rough request into a polished ${modeLabel.toLowerCase()} prompt for a high-level AI assistant: ${cleaned}`
+  );
+
+  const features = [
+    `Use this raw user request as the core idea: "${cleaned}"`,
     'Expand the rough idea into a cleaner, stronger, more production-ready prompt instead of repeating it word-for-word.',
     'Make the AI act like an expert FiveM developer with strong QBCore, QS, standalone, optimization, and integration knowledge.',
-  ];
-
-  if (mode === 'script') {
-    lines.push('Focus on real FiveM resource structure, events, exports, configs, and drop-in usability.');
-  }
-  if (mode === 'ui') {
-    lines.push('Push for polished NUI structure, responsive layouts, strong UX, and clean Lua-to-UI wiring.');
-  }
-  if (mode === 'debug') {
-    lines.push('Push for root-cause analysis, working fixes, and corrected files instead of general advice.');
-  }
-  if (mode === 'mlo') {
-    lines.push('Push for builder workflow, placement logic, save/load flow, export format, and admin controls.');
-  }
-  if (mode === 'items') {
-    lines.push('Push for item definitions, metadata, weapon mappings, images, and inventory-ready naming consistency.');
-  }
-  if (mode === 'system') {
-    lines.push('Push for modular architecture, clean scalability, deep integrations, and premium release quality.');
-  }
-
-  if (/(prompt|chatgpt|gpt|claude|ai)/.test(lower)) {
-    lines.push('Keep the final result in ready-to-paste AI prompt format, not as a casual explanation.');
-  }
-  if (/(qbcore|qb core|qb)/.test(lower)) {
-    lines.push('Make QBCore a first-class target.');
-  }
-  if (/(standalone)/.test(lower)) {
-    lines.push('Keep standalone fallback behavior clean and realistic.');
-  }
-  if (/(qs-|quasar|qs inventory|qs housing|qs apartments|qs interface)/.test(lower)) {
-    lines.push('Explicitly account for QS resource compatibility and bridge behavior.');
-  }
-  if (/(ox_target|ox target|ox_lib|ox lib|ox_inventory|ox inventory)/.test(lower)) {
-    lines.push('Include Ox ecosystem compatibility where it improves the result.');
-  }
-  if (/(qb-target|qb target)/.test(lower)) {
-    lines.push('Keep qb-target interactions and setup details in scope.');
-  }
-  if (/(premium|tebex|polished|modern)/.test(lower)) {
-    lines.push('Aim for premium, Tebex-ready polish and cleaner presentation.');
-  }
-
-  lines.push('Fill in missing details with realistic FiveM best practices while staying aligned with what the user actually asked for.');
-
-  return lines.join(' ');
-}
-
-function buildNotesFromBrief(brief: string) {
-  return `Base the final prompt on this rough request: "${brief.trim()}". Improve clarity, completeness, and specificity without drifting away from the original goal.`;
-}
-
-function detectSelectionsFromBrief(brief: string) {
-  const lower = brief.toLowerCase();
-
-  const frameworks = [
-    ...( /(qbcore|qb core|qb)/.test(lower) ? ['QBCore'] : []),
-    ...( /(standalone)/.test(lower) ? ['Standalone'] : []),
-    ...( /(esx)/.test(lower) ? ['ESX'] : []),
-    ...( /(qbox)/.test(lower) ? ['Qbox'] : []),
-  ];
-
-  const targets = [
-    ...( /(qb-target|qb target)/.test(lower) ? ['qb-target'] : []),
-    ...( /(ox_target|ox target)/.test(lower) ? ['ox_target'] : []),
-    ...( /(qtarget|q-target)/.test(lower) ? ['qtarget'] : []),
-  ];
-
-  const inventories = [
-    ...( /(qs-inventory|qs inventory)/.test(lower) ? ['qs-inventory'] : []),
-    ...( /(ox_inventory|ox inventory)/.test(lower) ? ['ox_inventory'] : []),
-    ...( /(qb-inventory|qb inventory)/.test(lower) ? ['qb-inventory'] : []),
-  ];
-
-  return { frameworks, targets, inventories };
-}
-
-
-function pickRandom<T>(items: readonly T[], fallback: T): T {
-  return items.length ? items[Math.floor(Math.random() * items.length)] : fallback;
-}
-
-function shuffleCopy<T>(items: readonly T[]) {
-  const copy = [...items];
-  for (let index = copy.length - 1; index > 0; index -= 1) {
-    const swapIndex = Math.floor(Math.random() * (index + 1));
-    [copy[index], copy[swapIndex]] = [copy[swapIndex], copy[index]];
-  }
-  return copy;
-}
-
-function formatSelected(list: string[], fallback: string) {
-  return list.length ? list.join(', ') : fallback;
-}
-
-function buildRandomExtraLines(selectedExtras: string[]) {
-  const copy = shuffleCopy(selectedExtras);
-  return copy.slice(0, Math.min(copy.length, 6)).map((extra) => {
-    const lower = extra.toLowerCase();
-
-    if (lower.includes('admin')) return 'Include a real admin management flow with guarded access and practical setup controls.';
-    if (lower.includes('setup')) return 'Let staff configure or place the system without editing deep code every time.';
-    if (lower.includes('sql')) return 'Include SQL or first-start data setup where it improves the resource.';
-    if (lower.includes('localization')) return 'Keep labels, notifications, and UI text localization-ready.';
-    if (lower.includes('premium ui')) return 'Make the user-facing flow premium and visually polished rather than barebones.';
-    if (lower.includes('ox lib')) return 'Prefer ox_lib for context menus, notifications, and utilities where it makes sense.';
-    if (lower.includes('webhook')) return 'Add webhook logging hooks for key actions.';
-    if (lower.includes('skill')) return 'Use progress bars or skill checks where the interaction flow benefits from them.';
-    if (lower.includes('optimized')) return 'Keep loops efficient and avoid unnecessary client-side performance waste.';
-    if (lower.includes('config preset')) return 'Provide clear config presets or example presets for quick deployment.';
-    if (lower.includes('discord')) return 'Include optional Discord-facing logs or audit events.';
-    if (lower.includes('permission')) return 'Respect permission groups and admin restrictions cleanly.';
-    if (lower.includes('target zone')) return 'Use target zones or interaction zones where appropriate.';
-    if (lower.includes('animation')) return 'Pair important interactions with fitting animations and props.';
-    if (lower.includes('tebex')) return 'Aim for a Tebex-ready finish with presentable structure and release quality.';
-    if (lower.includes('auto-detect')) return 'Auto-detect supported frameworks or major dependencies where practical.';
-    if (lower.includes('shareable')) return 'Keep the output reusable and easy to hand off to teammates or customers.';
-    if (lower.includes('import / export')) return 'Support importing and exporting reusable presets or setup data.';
-    if (lower.includes('share by url')) return 'Make the setup or prompt easy to share through a simple handoff flow.';
-    if (lower.includes('json')) return 'Provide a machine-friendly JSON export where useful.';
-    if (lower.includes('bridge')) return 'Use a clean bridge layer rather than hardcoding one ecosystem path.';
-    if (lower.includes('standalone')) return 'Keep standalone fallback behavior working instead of requiring a framework at all times.';
-    if (lower.includes('job / gang / item')) return 'Support job, gang, or item restrictions where the gameplay needs them.';
-    if (lower.includes('zone-based')) return 'Use zone-aware behavior if the selected concept benefits from location rules.';
-    if (lower.includes('multi-step')) return 'Break the user flow into realistic multi-step gameplay instead of one button press.';
-    if (lower.includes('saved player')) return 'Persist player-side settings or preferences when it improves the experience.';
-    if (lower.includes('database')) return 'Persist meaningful state in the database when needed.';
-    if (lower.includes('live admin')) return 'Expose live builder or live admin editing tools if they fit the resource.';
-    if (lower.includes('context menus')) return 'Support cleaner context menu or radial access patterns.';
-    if (lower.includes('minigames')) return 'Use minigames or staged interactions where they improve gameplay.';
-    if (lower.includes('statebags')) return 'Use synced state cleanly for world or entity behavior.';
-    if (lower.includes('vehicle integration')) return 'Tie into vehicle-related gameplay where the concept supports it.';
-    if (lower.includes('phone integration')) return 'Hook into phone workflows or notifications if relevant.';
-    if (lower.includes('garage integration')) return 'Support garage or vehicle storage workflows where appropriate.';
-    if (lower.includes('inventory image')) return 'Account for inventory image expectations or item presentation details.';
-    if (lower.includes('prop placement')) return 'Include prop placement or placement helper behavior where useful.';
-    if (lower.includes('weather / time')) return 'Allow hooks into weather or time logic if the system would benefit from it.';
-    if (lower.includes('custom exports')) return 'Expose useful exports for other resources to integrate with.';
-    if (lower.includes('validation')) return 'Validate important actions server-side instead of trusting the client.';
-    if (lower.includes('keybind')) return 'Avoid messy keybind conflicts and keep user input predictable.';
-    if (lower.includes('health checks')) return 'Include practical sanity checks or dependency checks where helpful.';
-    if (lower.includes('crafting')) return 'Support recipe-driven or staged crafting logic if it fits.';
-    if (lower.includes('notification')) return 'Abstract notifications so different ecosystems can be supported cleanly.';
-    if (lower.includes('character support')) return 'Account for multicharacter or character-specific persistence when relevant.';
-    if (lower.includes('stash')) return 'Support stash, storage, or item holding flows if the concept needs them.';
-    if (lower.includes('billing')) return 'Support billing, money movement, or financial hooks where practical.';
-    if (lower.includes('preview')) return 'Include preview behavior so admins or players can confirm choices before finalizing.';
-    if (lower.includes('searchable')) return 'Keep admin or player lists searchable if the system has many entries.';
-    if (lower.includes('drag-and-drop')) return 'Use cleaner builder UX patterns if that improves the setup flow.';
-    if (lower.includes('audit')) return 'Track important actions with a usable audit trail.';
-    if (lower.includes('cooldown')) return 'Protect abuse-prone actions with realistic cooldown or anti-spam behavior.';
-    if (lower.includes('safe restart')) return 'Handle restart persistence so important state survives safely.';
-    if (lower.includes('command + export')) return 'Provide both command access and export hooks where that improves flexibility.';
-    if (lower.includes('npc')) return 'Support NPC or ped-driven interaction if the system concept fits it.';
-    if (lower.includes('map blips')) return 'Include map blips, markers, or world indicators if appropriate.';
-
-    return `Include ${extra} in a real, production-usable way.`;
-  });
-}
-
-function generateRandomPromptFromSelections({
-  mode,
-  frameworks,
-  targets,
-  inventories,
-  appearance,
-  phones,
-  garages,
-  extras,
-  qsPackages,
-}: {
-  mode: ModeId;
-  frameworks: string[];
-  targets: string[];
-  inventories: string[];
-  appearance: string[];
-  phones: string[];
-  garages: string[];
-  extras: string[];
-  qsPackages: string[];
-}) {
-  const subjectPools: Record<ModeId, readonly string[]> = {
-    script: ['chop shop workflow', 'restaurant ordering system', 'advanced elevator system', 'crafting operation', 'storage access system', 'business interaction script'],
-    ui: ['tablet management app', 'admin control dashboard', 'premium job panel', 'vehicle control interface', 'dispatch tablet', 'builder menu interface'],
-    debug: ['resource repair pass', 'integration cleanup plan', 'inventory persistence fix', 'target interaction fix', 'NUI callback repair', 'framework bridge cleanup'],
-    mlo: ['interior builder flow', 'placement editor', 'furniture placement tool', 'shell editing workflow', 'map configuration builder', 'prop staging system'],
-    items: ['custom weapon pack prompt', 'item and metadata pack', 'ammo mapping prompt', 'crafting item pack', 'inventory image pack', 'attachment setup prompt'],
-    system: ['full gameplay framework concept', 'business management system', 'advanced property system', 'dispatch ecosystem', 'crime gameplay loop', 'service job platform'],
-  };
-
-  const stylePools: Record<ModeId, readonly string[]> = {
-    script: ['premium', 'modular', 'drop-in ready', 'high-polish', 'server-owner friendly'],
-    ui: ['premium', 'clean', 'responsive', 'modern', 'Tebex-ready'],
-    debug: ['systematic', 'root-cause-first', 'clean', 'practical', 'production-safe'],
-    mlo: ['builder-friendly', 'admin-driven', 'export-ready', 'structured', 'workflow-focused'],
-    items: ['consistent', 'inventory-ready', 'metadata-aware', 'clean', 'framework-compatible'],
-    system: ['deep', 'scalable', 'modular', 'production-ready', 'high-end'],
-  };
-
-  const subject = pickRandom(subjectPools[mode], 'FiveM project');
-  const style = pickRandom(stylePools[mode], 'production-ready');
-  const frameworkText = formatSelected(frameworks, 'QBCore and standalone');
-  const targetText = formatSelected(targets, 'qb-target or ox_target');
-  const inventoryText = formatSelected(inventories, 'qs-inventory');
-  const appearanceText = formatSelected(appearance, 'illenium-appearance');
-  const phoneText = formatSelected(phones.filter((entry) => entry !== 'none'), 'no phone requirement');
-  const garageText = formatSelected(garages.filter((entry) => entry !== 'none'), 'no garage requirement');
-  const qsText = qsPackages.length ? shuffleCopy(qsPackages).slice(0, 6).join(', ') : 'selected QS resources when relevant';
-  const extraLines = buildRandomExtraLines(extras.length ? extras : ['Responsive premium UI', 'Built-in bridge layer', 'Database persistence']);
-  const name = `${titleCase(style)} ${titleCase(subject)}`;
-  const summary = `Create a ${style} FiveM ${subject} prompt that fits ${frameworkText}, respects the currently selected integrations, and feels ready for a real production server.`;
-  const features = [
-    `Generate a polished AI prompt for a ${subject} instead of raw implementation notes.`,
-    `Make the AI act like an expert FiveM developer with strong knowledge of ${frameworkText}, ${targetText}, ${inventoryText}, and realistic server-side architecture.`,
-    `Account for appearance support through ${appearanceText}, phone considerations through ${phoneText}, and garage workflow through ${garageText}.`,
-    `Keep the prompt aligned with selected QS ecosystem expectations, especially around ${qsText}.`,
-    ...extraLines,
+    inferredMode === 'mlo'
+      ? 'Push for builder workflow, placement logic, save/load flow, export format, and admin controls.'
+      : inferredMode === 'ui'
+        ? 'Push for a polished UI/NUI workflow, event wiring, layout behavior, and production-ready UX decisions.'
+        : inferredMode === 'debug'
+          ? 'Push for real troubleshooting flow, root-cause analysis, working fixes, and replacement code where needed.'
+          : 'Push for production-ready gameplay logic, admin workflow, multiplayer-safe state handling, and clean file structure.',
+    selectedExtras.length
+      ? `Blend in the selected extras where they actually fit the idea: ${selectedExtras.join(', ')}.`
+      : 'Add only the extras that are clearly relevant to the idea.',
+    selectedQs.length
+      ? `Respect the selected QS ecosystem choices when relevant: ${selectedQs.join(', ')}.`
+      : 'Support broad FiveM compatibility without forcing unnecessary integrations.',
   ].join(' ');
-  const notes = `This prompt was randomly generated from the currently selected extras and integrations. Keep the final result aligned with ${frameworkText}, ${targetText}, ${inventoryText}, and the chosen extras: ${(extras.length ? extras : ['Responsive premium UI']).join(', ')}.`;
+
+  const notes = [
+    `Base the final prompt on this rough request: "${cleaned}".`,
+    'Improve clarity, completeness, and specificity without drifting away from the original goal.',
+    selectedExtras.length ? `Selected extras to weave in naturally when relevant: ${selectedExtras.join(', ')}.` : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   return {
-    brief: `Write me a strong AI prompt for a ${style} ${subject} that works for ${frameworkText} and respects these extras: ${(extras.length ? extras : ['Responsive premium UI']).join(', ')}.`,
-    projectName: name,
+    mode: inferredMode,
+    projectName,
     summary,
     features,
     notes,
   };
 }
 
+function generateRandomIdea(state: PresetState) {
+  const mode = state.mode;
+  const extras = pickRelevantExtras(state.extras, 4);
+  const frameworks = state.frameworks.length ? state.frameworks.join(' and ') : 'QBCore and standalone';
+  const targets = state.targets.length ? state.targets.join(' and ') : 'qb-target and ox_target';
 
-function buildPrompt(data: PresetState, modeLabel: string) {
+  const ideas: Record<ModeId, string[]> = {
+    script: [
+      `build me a premium FiveM admin utility that helps staff manage broken props and world issues with ${targets}`,
+      `make me a high quality FiveM developer tool that can inspect entities, copy coords, and save changes with ${frameworks}`,
+      `write me a prompt for a FiveM script that gives admins a polished in game builder for interactive job locations`,
+    ],
+    ui: [
+      'make me a prompt for a premium FiveM tablet UI with responsive NUI pages and smooth admin workflow',
+      'write me a better prompt for a modern FiveM management panel with clean layout, filters, and animated sections',
+      'build a prompt for a Tebex-quality FiveM settings UI that feels polished and responsive',
+    ],
+    debug: [
+      'make me a prompt that helps fix a broken FiveM script with real root cause analysis and full working replacements',
+      'write me a debugging prompt for a FiveM resource that has callback issues, target problems, and database persistence bugs',
+      'build a troubleshooting prompt for a FiveM script that errors on startup and has broken event flow',
+    ],
+    mlo: [
+      'make me a prompt for a FiveM dev tool that removes props from the world, keeps them removed after restart, and syncs to everyone',
+      'write me a prompt for an in game mapping utility that can place, move, and save objects with admin controls',
+      'build a prompt for a FiveM MLO helper that copies coords, inspects props, and exports placement data',
+    ],
+    items: [
+      'write me a prompt for a FiveM item and weapon pack builder with metadata, ammo mapping, and inventory images',
+      'make me a prompt for generating consistent qb-core and qs inventory item definitions with icons and integration notes',
+      'build a prompt for a FiveM custom weapon setup with clean ammo logic and framework-ready definitions',
+    ],
+    system: [
+      'make me a prompt for a full FiveM system with QBCore support, standalone fallback, and premium UI',
+      'write me a prompt for a complete admin-facing FiveM system with setup tools, persistence, and integrations',
+      'build a prompt for a production-ready FiveM gameplay system that supports QBCore, QS resources, and clean bridges',
+    ],
+  };
+
+  const base = ideas[mode][Math.floor(Math.random() * ideas[mode].length)];
+  if (!extras.length) return base;
+  return `${base} and work in extras like ${extras.join(', ')}`;
+}
+
+function buildPrompt(data: PresetState, modeLabel: string, quickBrief: string) {
+  const brief = normalizeBrief(quickBrief);
   const frameworks = data.frameworks.length ? data.frameworks.join(', ') : 'QBCore, Standalone';
   const targets = data.targets.length ? data.targets.join(', ') : 'qb-target, ox_target';
   const inventories = data.inventories.length ? data.inventories.join(', ') : 'qs-inventory';
@@ -390,102 +239,59 @@ function buildPrompt(data: PresetState, modeLabel: string) {
   const phones = data.phones.length ? data.phones.join(', ') : 'none';
   const garages = data.garages.length ? data.garages.join(', ') : 'none';
   const qsPackages = data.qsPackages.length ? data.qsPackages.join(', ') : 'No specific QS packages selected';
-  const extras = data.extras.length ? data.extras.join(', ') : 'premium UI, optimization, clean config';
-  const extraNotes = data.notes?.trim() || 'No additional notes provided.';
+  const selectedExtras = data.extras.length ? data.extras.join(', ') : 'Only use extras that are clearly relevant.';
   const deliverables = data.deliverables.length
     ? data.deliverables.join(', ')
     : 'complete resource, config, SQL, README, and install notes';
-  const rawBrief = data.brief?.trim();
 
-  const modeGuidance = {
-    script:
-      'Focus on a complete gameplay script that is production-ready, optimized, deeply configurable, and easy to run on live FiveM servers.',
-    ui: 'Focus heavily on premium NUI quality, responsive layouts, polished UX, sharing tools, and full UI-to-Lua wiring.',
-    debug:
-      'Focus on finding the real root cause, replacing broken logic with working logic, and returning corrected code files with compatibility fixes.',
-    mlo:
-      'Focus on placement workflow, editing tools, save/load behavior, permissions, builder UX, and export-friendly structure.',
-    items:
-      'Focus on consistent naming, item definitions, weapon mappings, metadata, icon/image support, and inventory-ready outputs.',
-    system:
-      'Focus on architecture, scalability, modularity, config-driven design, sharing, and complete end-to-end implementation.',
-  };
+  const objective = data.summary.trim() || 'Turn this idea into a polished, AI-ready FiveM development prompt.';
+  const features = data.features.trim() || 'Expand the idea with realistic FiveM implementation details, clean structure, and relevant multiplayer-safe logic.';
+  const notes = data.notes.trim() || 'Keep the final prompt aligned with the original goal and avoid fake or placeholder logic.';
 
-  return `You are an elite FiveM developer and system designer specialized in high-end, production-ready resources for GTA V FiveM servers.
+  return `You are an expert FiveM developer and system designer who writes strong, production-ready prompts for high-level AI assistants.
 
-Task Type: ${modeLabel}
-Project Name: ${data.projectName || 'Untitled FiveM Project'}
-Main Goal: ${data.summary || 'Create a complete FiveM resource.'}
+Project: ${data.projectName || 'Untitled FiveM Project'}
+Prompt type: ${modeLabel}
 
-${rawBrief ? `Original user brief:
-${rawBrief}
+${brief ? `Original idea:\n"${brief}"\n` : ''}Objective:
+${objective}
 
-` : ''}What I want built:
-${data.features || 'Build the full system with working client, server, config, and UI flow.'}
+What the final solution should cover:
+${features}
 
-Compatibility targets:
-- Main frameworks: ${frameworks}
+Selected stack and compatibility:
+- Frameworks: ${frameworks}
 - Target systems: ${targets}
 - Inventory systems: ${inventories}
 - Appearance systems: ${appearance}
 - Phone systems: ${phones}
 - Garage systems: ${garages}
-- QS ecosystem packages to support when present: ${qsPackages}
-- Extra requirements: ${extras}
-- Deliverables wanted: ${deliverables}
+- QS resources to support when relevant: ${qsPackages}
 
-Core compatibility rules:
-- Treat QBCore as a primary supported framework.
-- Also support standalone mode with clean fallback logic where framework features are not available.
-- Build auto-detection and bridges so the resource can recognize installed QS scripts and integrate with them when present.
-- Support as much of the QS ecosystem as realistically possible through adapters, feature flags, and clean bridge modules.
-- Do not hard crash if a QS package is missing. Use safe checks, adapters, and documented fallbacks.
-- Keep exports, callbacks, events, and config options clean enough that server owners can enable or disable integrations easily.
-- Include sharing features for presets, templates, or generated configurations when useful so the output is easy to pass to friends or teammates.
+Selected extras to weave in naturally where they make sense:
+- ${selectedExtras}
 
-Build rules:
-- ${modeGuidance[data.mode]}
-- Make it feel premium, polished, and Tebex-quality.
-- Use clean file structure, clear config sections, and optimized code.
-- Include all needed client, server, shared, and NUI files where relevant.
-- Do not give a vague outline only. Actually produce the implementation.
-- Include setup instructions, dependencies, exports, events, SQL if needed, and install steps.
-- Make the script easy to drag into a server and configure.
-- Keep the UI responsive for 1080p, 1440p, and ultrawide when applicable.
-- Use realistic FiveM naming, events, callbacks, exports, and state handling.
-- Prefer ox_lib support where it improves the system.
-- Explain key architecture choices briefly, then provide the actual code/files.
+Required output style:
+- Rewrite the rough idea into a cleaner, stronger, more professional AI prompt.
+- Make it read naturally, more like an optimized prompt generator result, not a giant checklist dump.
+- Keep the core idea intact while filling in missing FiveM-specific best practices.
+- Only include integrations or extras that actually fit the idea.
+- Prefer realistic multiplayer-safe patterns, persistence, admin workflow, clean file structure, and good UX where relevant.
+- Avoid fake exports, placeholder logic, and overstuffed filler requirements.
 
-Quality bar:
-- No placeholder logic unless clearly labeled.
-- No fake exports.
-- No missing event flow.
-- No generic tutorial tone.
-- Return code that is cohesive and intended to actually work.
-- Clearly mark how each QS integration is handled.
-- Include compatibility notes for QBCore and standalone usage.
-- Prefer reusable bridge patterns for QS resources instead of hardcoding one-off logic everywhere.
+Deliverables to request from the AI:
+- ${deliverables}
 
-Additional instructions from me:
-${extraNotes}
-
-Output format:
-1. Short system overview
-2. File structure
-3. Full code for each file
-4. SQL (if needed)
-5. Setup / install instructions
-6. Integration notes for QBCore, QS resources, and standalone mode
-7. Sharing notes for presets, templates, or handoff to friends
-8. Customization notes for sharing or selling the resource
-`;
+Extra guidance:
+${notes}`;
 }
 
-export default function HomePage() {
+export default function FiveMPromptMakerSite() {
   const [mode, setMode] = useState<ModeId>(DEFAULTS.mode);
   const [projectName, setProjectName] = useState(DEFAULTS.projectName);
   const [summary, setSummary] = useState(DEFAULTS.summary);
   const [features, setFeatures] = useState(DEFAULTS.features);
+  const [quickBrief, setQuickBrief] = useState('');
   const [frameworks, setFrameworks] = useState<string[]>(DEFAULTS.frameworks);
   const [targets, setTargets] = useState<string[]>(DEFAULTS.targets);
   const [inventories, setInventories] = useState<string[]>(DEFAULTS.inventories);
@@ -496,15 +302,14 @@ export default function HomePage() {
   const [extras, setExtras] = useState<string[]>(DEFAULTS.extras);
   const [deliverables, setDeliverables] = useState<string[]>(DEFAULTS.deliverables);
   const [notes, setNotes] = useState(DEFAULTS.notes);
-  const [brief, setBrief] = useState(DEFAULTS.brief || '');
-  const [copied, setCopied] = useState(false);
-  const [shareCopied, setShareCopied] = useState(false);
-  const [conversationId, setConversationId] = useState(
-    typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'replace-with-uuid',
-  );
   const [proxyUrl, setProxyUrl] = useState(DEFAULTS.proxyUrl);
   const [teamId, setTeamId] = useState(DEFAULTS.teamId);
   const [botId, setBotId] = useState(DEFAULTS.botId);
+  const [conversationId, setConversationId] = useState(() =>
+    typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'replace-with-uuid'
+  );
+  const [copied, setCopied] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
   const [docsbotAnswer, setDocsbotAnswer] = useState('');
   const [docsbotError, setDocsbotError] = useState('');
   const [loadingReply, setLoadingReply] = useState(false);
@@ -530,12 +335,14 @@ export default function HomePage() {
       extras,
       deliverables,
       notes,
-      brief,
     }),
-    [mode, projectName, summary, features, frameworks, targets, inventories, appearance, phones, garages, qsPackages, extras, deliverables, notes, brief],
+    [mode, projectName, summary, features, frameworks, targets, inventories, appearance, phones, garages, qsPackages, extras, deliverables, notes]
   );
 
-  const prompt = useMemo(() => buildPrompt(presetState, MODES.find((entry) => entry.id === mode)?.label || 'Script Builder'), [presetState, mode]);
+  const prompt = useMemo(() => {
+    const modeLabel = MODES.find((entry) => entry.id === mode)?.label || mode;
+    return buildPrompt(presetState, modeLabel, quickBrief);
+  }, [mode, presetState, quickBrief]);
 
   const docsBotPayload = useMemo(
     () => ({
@@ -543,7 +350,7 @@ export default function HomePage() {
       stream: false,
       conversationId,
     }),
-    [prompt, conversationId],
+    [prompt, conversationId]
   );
 
   const shareUrl = useMemo(() => {
@@ -555,10 +362,10 @@ export default function HomePage() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const preset = new URLSearchParams(window.location.search).get('preset');
-    if (!preset) return;
+    const presetParam = new URLSearchParams(window.location.search).get('preset');
+    if (!presetParam) return;
 
-    const parsed = decodePreset(preset);
+    const parsed = decodePreset(presetParam);
     if (!parsed) return;
 
     setMode(parsed.mode || DEFAULTS.mode);
@@ -575,7 +382,6 @@ export default function HomePage() {
     setExtras(parsed.extras || DEFAULTS.extras);
     setDeliverables(parsed.deliverables || DEFAULTS.deliverables);
     setNotes(parsed.notes || DEFAULTS.notes);
-    setBrief(parsed.brief || '');
   }, []);
 
   const applyModeStarter = (nextMode: ModeId) => {
@@ -586,46 +392,26 @@ export default function HomePage() {
   };
 
   const generateFromBrief = () => {
-    const cleaned = brief.trim().replace(/\s+/g, ' ');
-    if (!cleaned) {
-      setDocsbotError('Type your rough idea first, then generate a better prompt from it.');
-      return;
-    }
+    const cleaned = normalizeBrief(quickBrief);
+    if (!cleaned) return;
 
-    const nextMode = inferModeFromBrief(cleaned);
-    const detected = detectSelectionsFromBrief(cleaned);
-
-    setDocsbotError('');
-    setMode(nextMode);
-    setProjectName(buildProjectNameFromBrief(cleaned, nextMode));
-    setSummary(buildSummaryFromBrief(cleaned, nextMode));
-    setFeatures(buildFeaturesFromBrief(cleaned, nextMode));
-    setNotes(buildNotesFromBrief(cleaned));
-
-    if (detected.frameworks.length) setFrameworks(Array.from(new Set(detected.frameworks)));
-    if (detected.targets.length) setTargets(Array.from(new Set(detected.targets)));
-    if (detected.inventories.length) setInventories(Array.from(new Set(detected.inventories)));
+    const next = buildEnhancedFields(cleaned, presetState);
+    setMode(next.mode);
+    setProjectName(next.projectName);
+    setSummary(next.summary);
+    setFeatures(next.features);
+    setNotes(next.notes);
   };
 
-  const generateRandomFromSelections = () => {
-    setDocsbotError('');
-    const generated = generateRandomPromptFromSelections({
-      mode,
-      frameworks,
-      targets,
-      inventories,
-      appearance,
-      phones,
-      garages,
-      extras,
-      qsPackages,
-    });
-
-    setBrief(generated.brief);
-    setProjectName(generated.projectName);
-    setSummary(generated.summary);
-    setFeatures(generated.features);
-    setNotes(generated.notes);
+  const randomFromSelections = () => {
+    const brief = generateRandomIdea(presetState);
+    setQuickBrief(brief);
+    const next = buildEnhancedFields(brief, presetState);
+    setMode(next.mode);
+    setProjectName(next.projectName);
+    setSummary(next.summary);
+    setFeatures(next.features);
+    setNotes(next.notes);
   };
 
   const copyPrompt = async () => {
@@ -671,7 +457,6 @@ export default function HomePage() {
       setExtras(parsed.extras || DEFAULTS.extras);
       setDeliverables(parsed.deliverables || DEFAULTS.deliverables);
       setNotes(parsed.notes || DEFAULTS.notes);
-      setBrief(parsed.brief || '');
     } catch {
       setDocsbotError('Could not import preset JSON.');
     } finally {
@@ -684,6 +469,7 @@ export default function HomePage() {
     setProjectName(DEFAULTS.projectName);
     setSummary(DEFAULTS.summary);
     setFeatures(DEFAULTS.features);
+    setQuickBrief('');
     setFrameworks(DEFAULTS.frameworks);
     setTargets(DEFAULTS.targets);
     setInventories(DEFAULTS.inventories);
@@ -694,7 +480,6 @@ export default function HomePage() {
     setExtras(DEFAULTS.extras);
     setDeliverables(DEFAULTS.deliverables);
     setNotes(DEFAULTS.notes);
-    setBrief(DEFAULTS.brief || '');
     setDocsbotAnswer('');
     setDocsbotError('');
     if (typeof crypto !== 'undefined' && crypto.randomUUID) {
@@ -750,70 +535,60 @@ export default function HomePage() {
             <Sparkles size={16} />
             FiveM AI Prompt Maker
           </div>
-          <h1 className="hero-title">Turn a rough FiveM idea into a better full prompt.</h1>
+          <h1 className="hero-title">Turn a rough FiveM idea into a stronger prompt that still uses your selected extras.</h1>
           <p className="hero-copy">
-            Type what you want in plain words, let the builder expand it into a stronger prompt, then fine-tune the integrations and extras
-            before you copy or send it through your DocsBot proxy.
+            Start with a quick brief like you would on a prompt generator, then let the builder rewrite it into a cleaner FiveM prompt while weaving in the stack, QS resources,
+            and extras you already selected.
           </p>
           <div className="info-row">
-            <div className="info-chip">Fits in frame</div>
-            <div className="info-chip">Freeform prompt generation</div>
-            <div className="info-chip">QBCore + QS aware</div>
-            <div className="info-chip">DocsBot-ready</div>
+            <div className="info-chip">Brief-first flow</div>
+            <div className="info-chip">Selected extras included</div>
+            <div className="info-chip">QBCore + standalone</div>
+            <div className="info-chip">DocsBot server proxy</div>
           </div>
         </div>
 
         <div className="panel">
           <div className="card-header">
             <div className="icon-box">
-              <Bot className="icon" />
+              <Bot />
             </div>
             <div>
               <h2 className="section-title">How it works</h2>
-              <p className="section-subtitle">Give it a rough ask once, then let it turn that into a better structured prompt.</p>
+              <p className="section-subtitle">More like a prompt enhancer, less like a giant template filler.</p>
             </div>
           </div>
           <div className="steps">
-            <div className="step">1. Type your rough request in the quick brief box.</div>
-            <div className="step">2. Click Generate better prompt from brief to fill the main fields for you.</div>
-            <div className="step">3. Adjust integrations, extras, and deliverables, then copy the finished prompt.</div>
+            <div className="step">1. Type a rough idea in the quick brief box.</div>
+            <div className="step">2. Click <strong>Generate better prompt from brief</strong> to rewrite it into a stronger FiveM prompt.</div>
+            <div className="step">3. Your selected extras and integrations still get worked into the final prompt where they make sense.</div>
           </div>
         </div>
       </motion.section>
 
-      <div className="workspace-grid">
+      <div className="main-grid">
         <div className="split-grid">
-          <SectionCard icon={Wand2} title="Prompt builder" subtitle="Type the rough idea once, then generate better prompt fields around it.">
+          <SectionCard icon={Wand2} title="Prompt builder" subtitle="Start with a simple idea, then refine it.">
             <div className="field-grid">
               <label className="input-block">
                 <span className="label">Quick brief</span>
                 <textarea
-                  rows={4}
-                  value={brief}
-                  onChange={(event) => setBrief(event.target.value)}
-                  placeholder="Example: I want a prompt for ChatGPT that makes it act like an expert FiveM dev and build a premium qb-target restaurant script with QS inventory support."
+                  rows={5}
+                  value={quickBrief}
+                  onChange={(event) => setQuickBrief(event.target.value)}
+                  placeholder="Example: write me a prompt for ChatGPT that makes it act like an expert FiveM dev and build a premium prop removal dev tool that keeps removals saved and synced"
                 />
               </label>
-
-              <div className="action-row">
-                <button type="button" className="action-button primary" onClick={generateFromBrief}>
-                  <Sparkles size={16} /> Generate better prompt from brief
-                </button>
-                <button type="button" className="action-button" onClick={generateRandomFromSelections}>
-                  <Dices size={16} /> Random prompt from selected extras
-                </button>
-                <button type="button" className="action-button" onClick={() => applyModeStarter(mode)}>
-                  Use current mode starter
-                </button>
-              </div>
-
-              <p className="helper">
-                This does more than paste your text into one box. It can expand your rough request into a cleaner project name, main goal,
-                and feature brief, or build a random prompt idea from the extras and integrations you already selected.
-              </p>
             </div>
 
-            <div className="divider" />
+            <div className="action-row">
+              <button type="button" className="action-button primary" onClick={generateFromBrief}>
+                <WandSparkles size={16} /> Generate better prompt from brief
+              </button>
+              <button type="button" className="action-button" onClick={randomFromSelections}>
+                <Shuffle size={16} /> Random prompt from selected extras
+              </button>
+            </div>
 
             <div className="mode-row" style={{ marginBottom: 16 }}>
               {MODES.map((entry) => (
@@ -846,7 +621,7 @@ export default function HomePage() {
             </div>
           </SectionCard>
 
-          <SectionCard icon={Settings2} title="Integrations" subtitle="Pick the frameworks, resources, and systems the AI must support.">
+          <SectionCard icon={Settings2} title="Integrations" subtitle="Pick the frameworks, resources, and systems the prompt should respect.">
             <div className="field-grid">
               <div className="input-block">
                 <span className="label">Frameworks</span>
@@ -889,7 +664,7 @@ export default function HomePage() {
             </div>
           </SectionCard>
 
-          <SectionCard icon={Package} title="Extras + deliverables" subtitle="These are grouped, but the whole page now stays in frame without pushing off to the right.">
+          <SectionCard icon={Package} title="Extras + deliverables" subtitle="Selected extras get blended into the rewritten prompt where they actually fit.">
             <div className="extra-groups">
               {EXTRA_GROUPS.map((group) => (
                 <div key={group.id} className="extra-group">
@@ -908,7 +683,7 @@ export default function HomePage() {
               <label className="input-block">
                 <span className="label">Extra notes</span>
                 <textarea
-                  rows={4}
+                  rows={5}
                   value={notes}
                   onChange={(event) => setNotes(event.target.value)}
                   placeholder="Add server rules, naming conventions, or special integration requirements here."
@@ -919,7 +694,7 @@ export default function HomePage() {
         </div>
 
         <div className="split-grid">
-          <SectionCard icon={Code2} title="Generated prompt" subtitle="The output updates after you generate from the quick brief or edit the detailed fields.">
+          <SectionCard icon={Code2} title="Generated prompt" subtitle="A cleaner prompt output that starts from your rough idea and applies your selected stack and extras.">
             <div className="action-row">
               <button type="button" className="action-button primary" onClick={copyPrompt}>
                 {copied ? <CheckCircle2 size={16} /> : <Copy size={16} />} {copied ? 'Copied' : 'Copy Prompt'}
@@ -938,10 +713,10 @@ export default function HomePage() {
               </button>
               <input ref={fileInputRef} type="file" accept="application/json" className="hidden-input" onChange={importPreset} />
             </div>
-            <textarea className="mono prompt-output" rows={18} readOnly value={prompt} />
+            <div className="preview-box mono prompt-preview">{prompt}</div>
           </SectionCard>
 
-          <SectionCard icon={Server} title="Sharing + DocsBot setup" subtitle="Share the setup and optionally run the prompt through your server-side proxy.">
+          <SectionCard icon={Server} title="Sharing + DocsBot setup" subtitle="Share the setup and optionally run the generated prompt through your server-side proxy.">
             <div className="field-grid">
               <div className="input-block">
                 <span className="label">Share URL</span>
