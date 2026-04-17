@@ -98,3 +98,5 @@ Any host that supports a Next.js Node server or Next standalone output will work
 ## Layout refresh
 
 This packaged version includes a larger grouped layout refresh with bigger chips/buttons, wider spacing, and easier-to-scan extra sections.
+
+- random prompt generation button based on selected extras and integrations

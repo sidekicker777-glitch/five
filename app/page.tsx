@@ -26,6 +26,7 @@ import {
   Sparkles,
   Upload,
   Wand2,
+  Dices,
 } from 'lucide-react';
 import { decodePreset, encodePreset } from '@/lib/preset';
 import {
@@ -227,6 +228,159 @@ function detectSelectionsFromBrief(brief: string) {
 
   return { frameworks, targets, inventories };
 }
+
+
+function pickRandom<T>(items: readonly T[], fallback: T): T {
+  return items.length ? items[Math.floor(Math.random() * items.length)] : fallback;
+}
+
+function shuffleCopy<T>(items: readonly T[]) {
+  const copy = [...items];
+  for (let index = copy.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [copy[index], copy[swapIndex]] = [copy[swapIndex], copy[index]];
+  }
+  return copy;
+}
+
+function formatSelected(list: string[], fallback: string) {
+  return list.length ? list.join(', ') : fallback;
+}
+
+function buildRandomExtraLines(selectedExtras: string[]) {
+  const copy = shuffleCopy(selectedExtras);
+  return copy.slice(0, Math.min(copy.length, 6)).map((extra) => {
+    const lower = extra.toLowerCase();
+
+    if (lower.includes('admin')) return 'Include a real admin management flow with guarded access and practical setup controls.';
+    if (lower.includes('setup')) return 'Let staff configure or place the system without editing deep code every time.';
+    if (lower.includes('sql')) return 'Include SQL or first-start data setup where it improves the resource.';
+    if (lower.includes('localization')) return 'Keep labels, notifications, and UI text localization-ready.';
+    if (lower.includes('premium ui')) return 'Make the user-facing flow premium and visually polished rather than barebones.';
+    if (lower.includes('ox lib')) return 'Prefer ox_lib for context menus, notifications, and utilities where it makes sense.';
+    if (lower.includes('webhook')) return 'Add webhook logging hooks for key actions.';
+    if (lower.includes('skill')) return 'Use progress bars or skill checks where the interaction flow benefits from them.';
+    if (lower.includes('optimized')) return 'Keep loops efficient and avoid unnecessary client-side performance waste.';
+    if (lower.includes('config preset')) return 'Provide clear config presets or example presets for quick deployment.';
+    if (lower.includes('discord')) return 'Include optional Discord-facing logs or audit events.';
+    if (lower.includes('permission')) return 'Respect permission groups and admin restrictions cleanly.';
+    if (lower.includes('target zone')) return 'Use target zones or interaction zones where appropriate.';
+    if (lower.includes('animation')) return 'Pair important interactions with fitting animations and props.';
+    if (lower.includes('tebex')) return 'Aim for a Tebex-ready finish with presentable structure and release quality.';
+    if (lower.includes('auto-detect')) return 'Auto-detect supported frameworks or major dependencies where practical.';
+    if (lower.includes('shareable')) return 'Keep the output reusable and easy to hand off to teammates or customers.';
+    if (lower.includes('import / export')) return 'Support importing and exporting reusable presets or setup data.';
+    if (lower.includes('share by url')) return 'Make the setup or prompt easy to share through a simple handoff flow.';
+    if (lower.includes('json')) return 'Provide a machine-friendly JSON export where useful.';
+    if (lower.includes('bridge')) return 'Use a clean bridge layer rather than hardcoding one ecosystem path.';
+    if (lower.includes('standalone')) return 'Keep standalone fallback behavior working instead of requiring a framework at all times.';
+    if (lower.includes('job / gang / item')) return 'Support job, gang, or item restrictions where the gameplay needs them.';
+    if (lower.includes('zone-based')) return 'Use zone-aware behavior if the selected concept benefits from location rules.';
+    if (lower.includes('multi-step')) return 'Break the user flow into realistic multi-step gameplay instead of one button press.';
+    if (lower.includes('saved player')) return 'Persist player-side settings or preferences when it improves the experience.';
+    if (lower.includes('database')) return 'Persist meaningful state in the database when needed.';
+    if (lower.includes('live admin')) return 'Expose live builder or live admin editing tools if they fit the resource.';
+    if (lower.includes('context menus')) return 'Support cleaner context menu or radial access patterns.';
+    if (lower.includes('minigames')) return 'Use minigames or staged interactions where they improve gameplay.';
+    if (lower.includes('statebags')) return 'Use synced state cleanly for world or entity behavior.';
+    if (lower.includes('vehicle integration')) return 'Tie into vehicle-related gameplay where the concept supports it.';
+    if (lower.includes('phone integration')) return 'Hook into phone workflows or notifications if relevant.';
+    if (lower.includes('garage integration')) return 'Support garage or vehicle storage workflows where appropriate.';
+    if (lower.includes('inventory image')) return 'Account for inventory image expectations or item presentation details.';
+    if (lower.includes('prop placement')) return 'Include prop placement or placement helper behavior where useful.';
+    if (lower.includes('weather / time')) return 'Allow hooks into weather or time logic if the system would benefit from it.';
+    if (lower.includes('custom exports')) return 'Expose useful exports for other resources to integrate with.';
+    if (lower.includes('validation')) return 'Validate important actions server-side instead of trusting the client.';
+    if (lower.includes('keybind')) return 'Avoid messy keybind conflicts and keep user input predictable.';
+    if (lower.includes('health checks')) return 'Include practical sanity checks or dependency checks where helpful.';
+    if (lower.includes('crafting')) return 'Support recipe-driven or staged crafting logic if it fits.';
+    if (lower.includes('notification')) return 'Abstract notifications so different ecosystems can be supported cleanly.';
+    if (lower.includes('character support')) return 'Account for multicharacter or character-specific persistence when relevant.';
+    if (lower.includes('stash')) return 'Support stash, storage, or item holding flows if the concept needs them.';
+    if (lower.includes('billing')) return 'Support billing, money movement, or financial hooks where practical.';
+    if (lower.includes('preview')) return 'Include preview behavior so admins or players can confirm choices before finalizing.';
+    if (lower.includes('searchable')) return 'Keep admin or player lists searchable if the system has many entries.';
+    if (lower.includes('drag-and-drop')) return 'Use cleaner builder UX patterns if that improves the setup flow.';
+    if (lower.includes('audit')) return 'Track important actions with a usable audit trail.';
+    if (lower.includes('cooldown')) return 'Protect abuse-prone actions with realistic cooldown or anti-spam behavior.';
+    if (lower.includes('safe restart')) return 'Handle restart persistence so important state survives safely.';
+    if (lower.includes('command + export')) return 'Provide both command access and export hooks where that improves flexibility.';
+    if (lower.includes('npc')) return 'Support NPC or ped-driven interaction if the system concept fits it.';
+    if (lower.includes('map blips')) return 'Include map blips, markers, or world indicators if appropriate.';
+
+    return `Include ${extra} in a real, production-usable way.`;
+  });
+}
+
+function generateRandomPromptFromSelections({
+  mode,
+  frameworks,
+  targets,
+  inventories,
+  appearance,
+  phones,
+  garages,
+  extras,
+  qsPackages,
+}: {
+  mode: ModeId;
+  frameworks: string[];
+  targets: string[];
+  inventories: string[];
+  appearance: string[];
+  phones: string[];
+  garages: string[];
+  extras: string[];
+  qsPackages: string[];
+}) {
+  const subjectPools: Record<ModeId, readonly string[]> = {
+    script: ['chop shop workflow', 'restaurant ordering system', 'advanced elevator system', 'crafting operation', 'storage access system', 'business interaction script'],
+    ui: ['tablet management app', 'admin control dashboard', 'premium job panel', 'vehicle control interface', 'dispatch tablet', 'builder menu interface'],
+    debug: ['resource repair pass', 'integration cleanup plan', 'inventory persistence fix', 'target interaction fix', 'NUI callback repair', 'framework bridge cleanup'],
+    mlo: ['interior builder flow', 'placement editor', 'furniture placement tool', 'shell editing workflow', 'map configuration builder', 'prop staging system'],
+    items: ['custom weapon pack prompt', 'item and metadata pack', 'ammo mapping prompt', 'crafting item pack', 'inventory image pack', 'attachment setup prompt'],
+    system: ['full gameplay framework concept', 'business management system', 'advanced property system', 'dispatch ecosystem', 'crime gameplay loop', 'service job platform'],
+  };
+
+  const stylePools: Record<ModeId, readonly string[]> = {
+    script: ['premium', 'modular', 'drop-in ready', 'high-polish', 'server-owner friendly'],
+    ui: ['premium', 'clean', 'responsive', 'modern', 'Tebex-ready'],
+    debug: ['systematic', 'root-cause-first', 'clean', 'practical', 'production-safe'],
+    mlo: ['builder-friendly', 'admin-driven', 'export-ready', 'structured', 'workflow-focused'],
+    items: ['consistent', 'inventory-ready', 'metadata-aware', 'clean', 'framework-compatible'],
+    system: ['deep', 'scalable', 'modular', 'production-ready', 'high-end'],
+  };
+
+  const subject = pickRandom(subjectPools[mode], 'FiveM project');
+  const style = pickRandom(stylePools[mode], 'production-ready');
+  const frameworkText = formatSelected(frameworks, 'QBCore and standalone');
+  const targetText = formatSelected(targets, 'qb-target or ox_target');
+  const inventoryText = formatSelected(inventories, 'qs-inventory');
+  const appearanceText = formatSelected(appearance, 'illenium-appearance');
+  const phoneText = formatSelected(phones.filter((entry) => entry !== 'none'), 'no phone requirement');
+  const garageText = formatSelected(garages.filter((entry) => entry !== 'none'), 'no garage requirement');
+  const qsText = qsPackages.length ? shuffleCopy(qsPackages).slice(0, 6).join(', ') : 'selected QS resources when relevant';
+  const extraLines = buildRandomExtraLines(extras.length ? extras : ['Responsive premium UI', 'Built-in bridge layer', 'Database persistence']);
+  const name = `${titleCase(style)} ${titleCase(subject)}`;
+  const summary = `Create a ${style} FiveM ${subject} prompt that fits ${frameworkText}, respects the currently selected integrations, and feels ready for a real production server.`;
+  const features = [
+    `Generate a polished AI prompt for a ${subject} instead of raw implementation notes.`,
+    `Make the AI act like an expert FiveM developer with strong knowledge of ${frameworkText}, ${targetText}, ${inventoryText}, and realistic server-side architecture.`,
+    `Account for appearance support through ${appearanceText}, phone considerations through ${phoneText}, and garage workflow through ${garageText}.`,
+    `Keep the prompt aligned with selected QS ecosystem expectations, especially around ${qsText}.`,
+    ...extraLines,
+  ].join(' ');
+  const notes = `This prompt was randomly generated from the currently selected extras and integrations. Keep the final result aligned with ${frameworkText}, ${targetText}, ${inventoryText}, and the chosen extras: ${(extras.length ? extras : ['Responsive premium UI']).join(', ')}.`;
+
+  return {
+    brief: `Write me a strong AI prompt for a ${style} ${subject} that works for ${frameworkText} and respects these extras: ${(extras.length ? extras : ['Responsive premium UI']).join(', ')}.`,
+    projectName: name,
+    summary,
+    features,
+    notes,
+  };
+}
+
 
 function buildPrompt(data: PresetState, modeLabel: string) {
   const frameworks = data.frameworks.length ? data.frameworks.join(', ') : 'QBCore, Standalone';
@@ -453,6 +607,27 @@ export default function HomePage() {
     if (detected.inventories.length) setInventories(Array.from(new Set(detected.inventories)));
   };
 
+  const generateRandomFromSelections = () => {
+    setDocsbotError('');
+    const generated = generateRandomPromptFromSelections({
+      mode,
+      frameworks,
+      targets,
+      inventories,
+      appearance,
+      phones,
+      garages,
+      extras,
+      qsPackages,
+    });
+
+    setBrief(generated.brief);
+    setProjectName(generated.projectName);
+    setSummary(generated.summary);
+    setFeatures(generated.features);
+    setNotes(generated.notes);
+  };
+
   const copyPrompt = async () => {
     await navigator.clipboard.writeText(prompt);
     setCopied(true);
@@ -624,14 +799,17 @@ export default function HomePage() {
                 <button type="button" className="action-button primary" onClick={generateFromBrief}>
                   <Sparkles size={16} /> Generate better prompt from brief
                 </button>
+                <button type="button" className="action-button" onClick={generateRandomFromSelections}>
+                  <Dices size={16} /> Random prompt from selected extras
+                </button>
                 <button type="button" className="action-button" onClick={() => applyModeStarter(mode)}>
                   Use current mode starter
                 </button>
               </div>
 
               <p className="helper">
-                This does more than paste your text into one box. It expands your rough request into a cleaner project name, main goal, and
-                feature brief.
+                This does more than paste your text into one box. It can expand your rough request into a cleaner project name, main goal,
+                and feature brief, or build a random prompt idea from the extras and integrations you already selected.
               </p>
             </div>
 
